@@ -9,15 +9,7 @@ add-apt-repository -y ppa:webupd8team/java
 # accept eula
 echo debconf shared/accepted-oracle-license-v1-1 select true | sudo debconf-set-selections
 apt-get update
-apt-get -y install oracle-java8-installer
-
-
-
-if [ $? -ne 0 ]
-then
-        echo "java install failed"
-        exit 1
-fi
+apt-get -y install oracle-java8-installer || echo "java install failed" && exit 1
 
 # install elasticsearch
 echo "deb http://packages.elastic.co/elasticsearch/2.x/debian stable main" > /etc/apt/sources.list.d/elasticsearch-2.x.list
@@ -26,12 +18,7 @@ apt-get update
 apt-get -y install elasticsearch
 sed -i "s@\# network.host: 192.168.0.1@network.host: localhost@" /etc/elasticsearch/elasticsearch.yml
 service elasticsearch restart
-update-rc.d elasticsearch defaults 95 10
-if [ $? -ne 0 ]
-then
-        echo "elasticsearch install failed"
-        exit 1
-fi
+update-rc.d elasticsearch defaults 95 10 || echo "elasticsearch install failed" && exit 2
 
 # install kibana
 echo "deb http://packages.elastic.co/kibana/4.4/debian stable main" > /etc/apt/sources.list.d/kibana-4.4.x.list
@@ -39,12 +26,7 @@ apt-get update
 apt-get -y install kibana
 sed -i "s@\# server.host: \"0.0.0.0\"@server.host: \"localhost\"@" /opt/kibana/config/kibana.yml
 update-rc.d kibana defaults 96 9
-service kibana start
-if [ $? -ne 0 ]
-then
-        echo "kibana install failed"
-        exit 1
-fi
+service kibana start ||  echo "kibana install failed" && exit 3
 
 # install nginx
 apt-get -y install nginx apache2-utils
@@ -69,23 +51,13 @@ echo "server {
             proxy_cache_bypass \$http_upgrade;        
         }
     }" >  /etc/nginx/sites-available/default
-service nginx restart
-if [ $? -ne 0 ]
-then
-        echo "nginx default site config failed"
-        exit 1
-fi
+service nginx restart || echo "nginx default site config failed" && exit 4
 
 # install logstash
 echo "installing logstash"
 echo 'deb http://packages.elastic.co/logstash/2.2/debian stable main' >> /etc/apt/sources.list.d/logstash-2.2.x.list
 apt-get update
-apt-get -y install logstash
-if [ $? -ne 0 ]
-then
-        echo "logstash installation failed"
-        exit 1
-fi
+apt-get -y install logstash || echo "logstash installation failed" && exit 5
 
 mkdir -p /etc/pki/tls/certs
 mkdir /etc/pki/tls/private
@@ -142,19 +114,11 @@ echo '     output {
       }
     }' > /etc/logstash/conf.d/30-elasticsearch-output.conf
 
-
-
-service logstash configtest
-if [ $? -ne 0 ]
-then
-        echo "logstash config failed"
-        exit 1
-fi
+service logstash configtest || echo 'logstash config failed' && exit 6
 
 
 service logstash restart
 update-rc.d logstash defaults 96 9
-
 
 #get some kibana dashboards
 cd
@@ -162,26 +126,10 @@ curl -L -O https://download.elastic.co/beats/dashboards/beats-dashboards-1.1.0.z
 apt-get -y install unzip
 unzip beats-dashboards-*.zip
 cd beats-dashboards-*
-./load.sh
-if [ $? -ne 0 ]
-then
-        echo "beats-dashboard failed"
-        exit 1
-fi
+./load.sh || echo 'beats-dashbord failed' && exit 7
 
 cd ~
-curl -O https://gist.githubusercontent.com/thisismitch/3429023e8438cc25b86c/raw/d8c479e2a1adcea8b1fe86570e42abab0f10f364/filebeat-index-template.json
-if [ $? -ne 0 ]
-then
-        echo 'filebeat template download failed'
-        exit 1
-fi
+curl -O https://gist.githubusercontent.com/thisismitch/3429023e8438cc25b86c/raw/d8c479e2a1adcea8b1fe86570e42abab0f10f364/filebeat-index-template.json || echo 'filebeat template download failed' && exit 8
 
-curl -XPUT 'http://localhost:9200/_template/filebeat?pretty' -d@filebeat-index-template.json
-if [ $? -ne 0 ]
-then
-        echo "load filebeat template failed"
-        exit 1
-fi
-
+curl -XPUT 'http://localhost:9200/_template/filebeat?pretty' -d@filebeat-index-template.json ||  echo "load filebeat template failed" && exit 9
 
